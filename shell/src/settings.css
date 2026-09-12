@@ -1,0 +1,840 @@
+/* Settings: a device faceplate with two sections.
+
+   Session. The engine state is primary: one Doto word at display size, beside
+   a live dot-matrix scope of the microphone. Readings are secondary, as
+   instrument rows. The tape log, wordmark and footer are tertiary.
+
+   Models. The recommended model is primary, in Doto at 48px. The hardware
+   readout and the model list sit beneath it.
+
+   Type budget per section: three sizes (88 or 48 / 16 / 11), two weights. */
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--black);
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: var(--space-lg) var(--space-xl);
+}
+
+/* Instrument-panel label: always Space Mono, always caps. */
+.label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.2;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.label.muted {
+  color: var(--text-disabled);
+}
+
+:focus-visible {
+  outline: 1px solid var(--text-display);
+  outline-offset: 3px;
+}
+
+@keyframes tick {
+  50% {
+    opacity: 0;
+  }
+}
+
+.blink {
+  animation: tick 1s steps(1, end) infinite;
+}
+
+/* -- top: wordmark, sections, theme -------------------------------------- */
+
+.top {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-self: start;
+}
+
+.wordmark {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-display);
+}
+
+.brand-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--brand);
+  transition: background 150ms var(--ease);
+}
+
+/* Red means recording and orange means brand. They never share the screen. */
+body[data-hero="rec"] .brand-dot,
+body[data-hero="error"] .brand-dot {
+  background: var(--text-disabled);
+}
+
+.tabs {
+  display: flex;
+  gap: var(--space-md);
+}
+
+.tab {
+  padding: 8px 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-disabled);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 150ms var(--ease);
+}
+
+/* Brackets are always laid out and only shown when active, so switching
+   sections never shifts the tabs sideways. */
+.tab::before {
+  content: "[ ";
+  color: transparent;
+}
+
+.tab::after {
+  content: " ]";
+  color: transparent;
+}
+
+.tab:hover {
+  color: var(--text-primary);
+}
+
+.tab[aria-current="page"],
+.tab[aria-current="page"]::before,
+.tab[aria-current="page"]::after {
+  color: var(--text-display);
+}
+
+.segmented {
+  justify-self: end;
+  display: flex;
+  padding: 2px;
+  border: 1px solid var(--border-visible);
+  border-radius: 999px;
+}
+
+.segmented button {
+  padding: 6px 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    background 200ms var(--ease),
+    color 200ms var(--ease);
+}
+
+.segmented button:hover {
+  color: var(--text-display);
+}
+
+.segmented button[aria-checked="true"] {
+  background: var(--text-display);
+  color: var(--black);
+}
+
+/* -- sections ------------------------------------------------------------ */
+
+.view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.view-models {
+  display: block;
+  overflow-y: auto;
+  padding-right: var(--space-xs);
+}
+
+.view-models[hidden] {
+  display: none;
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--border);
+}
+
+/* -- hero: engine state and scope ------------------------------------------ */
+
+.hero {
+  margin-top: 40px;
+}
+
+.hero-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-lg);
+}
+
+.state {
+  margin: 0;
+  font-family: var(--font-dot);
+  font-weight: 700;
+  font-size: 88px;
+  line-height: 0.9;
+  letter-spacing: -0.02em;
+  color: var(--text-display);
+  transition: color 150ms var(--ease);
+}
+
+body[data-hero="rec"] .state,
+body[data-hero="error"] .state {
+  color: var(--rec);
+}
+
+/* Dimmed, but not to --text-disabled: on the light theme that grey all but
+   vanished, and the state word has to stay readable even when it is bad news. */
+body[data-hero="offline"] .state {
+  color: var(--text-secondary);
+}
+
+.scope-wrap {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-sm);
+}
+
+.scope {
+  display: block;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.scope-readout {
+  color: var(--text-disabled);
+  font-variant-numeric: tabular-nums;
+}
+
+.scope[aria-pressed="true"] + .scope-readout {
+  color: var(--text-display);
+}
+
+.state-sub {
+  margin: var(--space-md) 0 0;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.button {
+  margin-top: var(--space-lg);
+  min-height: 44px;
+  padding: 12px 24px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  border: 1px solid var(--border-visible);
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition:
+    opacity 150ms var(--ease),
+    border-color 150ms var(--ease);
+}
+
+.button.primary {
+  background: var(--text-display);
+  border-color: var(--text-display);
+  color: var(--black);
+}
+
+.button.small {
+  margin-top: 0;
+  min-height: 32px;
+  padding: 6px 14px;
+}
+
+.button:not(:disabled):hover {
+  border-color: var(--text-primary);
+}
+
+.button.primary:not(:disabled):hover {
+  opacity: 0.85;
+}
+
+.button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ghost {
+  padding: 6px 0 6px var(--space-md);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 150ms var(--ease);
+}
+
+.ghost:hover,
+.ghost.confirm {
+  color: var(--text-display);
+}
+
+/* -- rows ------------------------------------------------------------------- */
+
+.panel {
+  margin-top: var(--space-2xl);
+  border-top: 1px solid var(--border);
+}
+
+.row {
+  display: grid;
+  /* Wide enough for "Start with Windows" on one line. */
+  grid-template-columns: 160px 1fr auto;
+  align-items: center;
+  gap: var(--space-md);
+  min-height: 48px;
+  border-bottom: 1px solid var(--border);
+}
+
+.row > .value,
+.row > .key {
+  grid-column: 3;
+}
+
+.row > .text {
+  grid-column: 2 / 4;
+  justify-self: end;
+  text-align: right;
+  font-size: 16px;
+  color: var(--text-primary);
+}
+
+.row-note {
+  grid-column: 2;
+  justify-self: end;
+  text-align: right;
+}
+
+.row-note.warn {
+  color: var(--warning);
+}
+
+.value {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.unit {
+  margin-left: var(--space-xs);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+#stat-latency.warn {
+  color: var(--warning);
+}
+
+/* A hardware key you can press to rebind. The heavier bottom edge is key
+   travel, not a shadow. */
+.key {
+  padding: 7px 12px 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-display);
+  background: transparent;
+  border: 1px solid var(--border-visible);
+  border-bottom-width: 3px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: border-color 150ms var(--ease);
+}
+
+.key:hover {
+  border-color: var(--text-secondary);
+}
+
+.key.listening {
+  border-color: var(--text-display);
+  animation: tick 1s steps(1, end) infinite;
+}
+
+/* A physical switch: pill track, round thumb. Off is an outline with a dim
+   thumb; on inverts to a solid track with a dark thumb. */
+.row > .switch {
+  grid-column: 3;
+  justify-self: end;
+}
+
+.switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--border-visible);
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    background 200ms var(--ease),
+    border-color 200ms var(--ease);
+}
+
+.switch .thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--text-disabled);
+  transition:
+    transform 200ms var(--ease),
+    background 200ms var(--ease);
+}
+
+.switch:not(:disabled):hover {
+  border-color: var(--text-secondary);
+}
+
+.switch[aria-checked="true"] {
+  background: var(--text-display);
+  border-color: var(--text-display);
+}
+
+.switch[aria-checked="true"] .thumb {
+  transform: translateX(20px);
+  background: var(--black);
+}
+
+.switch:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Latency against the 600 ms budget, in discrete segments. */
+.segbar {
+  grid-column: 2;
+  display: flex;
+  gap: 2px;
+  height: 8px;
+}
+
+.segbar .seg {
+  flex: 1;
+  background: var(--border);
+}
+
+.segbar .seg.on {
+  background: var(--text-display);
+}
+
+.segbar .seg.warn {
+  background: var(--warning);
+}
+
+.segbar.mini {
+  width: 56px;
+}
+
+/* -- tape log ------------------------------------------------------------- */
+
+.log {
+  margin-top: var(--space-2xl);
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.log-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 29px;
+  border-bottom: 1px solid var(--border);
+}
+
+.log-tools {
+  display: flex;
+  align-items: center;
+}
+
+.history,
+.models {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.history {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.history li {
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  gap: var(--space-md);
+  align-items: baseline;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.history .empty {
+  display: block;
+  padding: var(--space-md) 0;
+  border-bottom: none;
+  color: var(--text-disabled);
+}
+
+.idx,
+.meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-disabled);
+}
+
+.meta {
+  white-space: nowrap;
+}
+
+.said {
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  user-select: text;
+}
+
+.history::-webkit-scrollbar,
+.view-models::-webkit-scrollbar {
+  width: 6px;
+}
+
+.history::-webkit-scrollbar-thumb,
+.view-models::-webkit-scrollbar-thumb {
+  background: var(--border-visible);
+}
+
+/* -- models ------------------------------------------------------------------ */
+
+.sys {
+  margin-top: var(--space-xl);
+}
+
+.pick {
+  margin-top: var(--space-2xl);
+}
+
+.pick-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  margin-top: var(--space-md);
+}
+
+.pick-name {
+  margin: 0;
+  font-family: var(--font-dot);
+  font-weight: 700;
+  font-size: 48px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  color: var(--text-display);
+  overflow-wrap: anywhere;
+}
+
+.pick-reason {
+  margin: var(--space-md) 0 0;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.catalog {
+  margin-top: var(--space-2xl);
+}
+
+.catalog-head,
+.model {
+  display: grid;
+  grid-template-columns: 1fr 58px 58px 72px 104px;
+  gap: var(--space-md);
+  align-items: center;
+}
+
+.catalog-head {
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--border);
+}
+
+.model {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.model[data-fit="too_big"],
+.model[data-fit="english_only"] {
+  opacity: 0.45;
+}
+
+.model-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.model-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.model-name {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  color: var(--text-primary);
+}
+
+.model[data-active] .model-name {
+  color: var(--text-display);
+}
+
+.tag {
+  padding: 2px 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.2;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-visible);
+  border-radius: 4px;
+}
+
+.tag.strong {
+  color: var(--text-display);
+  border-color: var(--text-display);
+}
+
+.tag.warn {
+  color: var(--warning);
+  border-color: var(--warning);
+}
+
+.model-note {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-disabled);
+}
+
+.model-note.warn {
+  color: var(--warning);
+}
+
+.bar5 {
+  display: flex;
+  gap: 2px;
+  height: 8px;
+}
+
+.bar5 .seg {
+  flex: 1;
+  background: var(--border);
+}
+
+.bar5 .seg.on {
+  background: var(--text-primary);
+}
+
+.model-size {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.model-action {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
+
+.is-active {
+  color: var(--text-display);
+}
+
+/* -- footer and model menu ----------------------------------------------------- */
+
+.foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding-top: var(--space-md);
+}
+
+.foot .label {
+  color: var(--text-disabled);
+}
+
+/* Takes the tagline's place when a new version is ready to install. */
+.foot .update {
+  padding-left: 0;
+  color: var(--text-primary);
+}
+
+.foot .update:hover {
+  color: var(--text-display);
+}
+
+.foot .update:disabled {
+  color: var(--text-disabled);
+  cursor: default;
+}
+
+.foot-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.menu-anchor {
+  position: relative;
+}
+
+.model-button {
+  padding: 4px 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 150ms var(--ease);
+}
+
+.model-button::after {
+  content: " \25B4";
+}
+
+.model-button:hover,
+.model-button[aria-expanded="true"] {
+  color: var(--text-display);
+}
+
+/* Flat surface and a border, no shadow. Opens upward from the footer. */
+.menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + var(--space-sm));
+  z-index: 10;
+  min-width: 260px;
+  padding: var(--space-xs) 0;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-visible);
+  border-radius: 8px;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  width: 100%;
+  min-height: 44px;
+  padding: 0 var(--space-md) 0 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+  color: var(--text-primary);
+  background: none;
+  border: none;
+  border-left: 2px solid transparent;
+  cursor: pointer;
+}
+
+.menu-item:hover:not(:disabled) {
+  background: var(--surface);
+}
+
+.menu-item[aria-checked="true"] {
+  color: var(--text-display);
+  border-left-color: var(--text-display);
+}
+
+.menu-item:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.menu-meta {
+  color: var(--text-disabled);
+}
+
+.menu-rule {
+  height: 1px;
+  margin: var(--space-xs) 0;
+  background: var(--border);
+}

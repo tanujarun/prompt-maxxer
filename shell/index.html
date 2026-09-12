@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Prompt Maxxer</title>
+    <link rel="stylesheet" href="/src/theme.css" />
+    <link rel="stylesheet" href="/src/settings.css" />
+  </head>
+  <body data-hero="starting" data-view="session">
+    <div class="page">
+      <header class="top">
+        <div class="brand">
+          <span class="wordmark">Prompt Maxxer</span>
+          <span class="brand-dot" aria-hidden="true"></span>
+        </div>
+        <nav class="tabs" aria-label="Sections">
+          <button class="tab" type="button" data-view="session" aria-current="page">Session</button>
+          <button class="tab" type="button" data-view="models">Models</button>
+        </nav>
+        <div class="segmented" role="radiogroup" aria-label="Theme">
+          <button type="button" role="radio" data-theme-pref="auto" aria-checked="true">Auto</button>
+          <button type="button" role="radio" data-theme-pref="light" aria-checked="false">Light</button>
+          <button type="button" role="radio" data-theme-pref="dark" aria-checked="false">Dark</button>
+        </div>
+      </header>
+
+      <div class="view" id="view-session">
+        <section class="hero" aria-live="polite">
+          <div class="hero-row">
+            <h1 class="state" id="state">LOADING</h1>
+            <div class="scope-wrap">
+              <canvas
+                class="scope"
+                id="scope"
+                role="button"
+                tabindex="0"
+                aria-pressed="false"
+                aria-label="Microphone scope. Press to hold the trace."
+              ></canvas>
+              <span class="label scope-readout" id="scope-readout">Input &mdash;</span>
+            </div>
+          </div>
+          <p class="state-sub" id="state-sub">Looking for the dictation engine.</p>
+          <button class="button primary" id="start-engine" type="button" hidden>Start engine</button>
+        </section>
+
+        <section class="panel" aria-label="Session">
+          <div class="row">
+            <span class="label">Push to talk</span>
+            <span class="label row-note" id="hotkey-note" aria-live="polite"></span>
+            <button
+              class="key"
+              id="hotkey"
+              type="button"
+              aria-pressed="false"
+              title="Click, then press the key you want to hold"
+            >Right Ctrl</button>
+          </div>
+          <div class="row">
+            <span class="label" id="autostart-label">Start with Windows</span>
+            <span class="label row-note" id="autostart-note" aria-live="polite"></span>
+            <button
+              class="switch"
+              id="autostart"
+              type="button"
+              role="switch"
+              aria-checked="false"
+              aria-labelledby="autostart-label"
+              disabled
+            ><span class="thumb"></span></button>
+          </div>
+          <div class="row">
+            <span class="label">Latency</span>
+            <div class="segbar" id="latency-bar" aria-hidden="true"></div>
+            <span class="value"><span id="stat-latency">&mdash;</span><span class="unit">ms</span></span>
+          </div>
+          <div class="row">
+            <span class="label">Realtime</span>
+            <span class="value"><span id="stat-rtf">&mdash;</span><span class="unit">&times;</span></span>
+          </div>
+          <div class="row">
+            <span class="label">Takes</span>
+            <span class="value" id="stat-count">000</span>
+          </div>
+        </section>
+
+        <section class="log" aria-label="Tape log">
+          <div class="log-head">
+            <span class="label">Tape log</span>
+            <div class="log-tools">
+              <span class="label" id="log-count">Empty</span>
+              <button class="ghost" id="clear-log" type="button" hidden>Clear</button>
+            </div>
+          </div>
+          <ol class="history" id="history"></ol>
+        </section>
+      </div>
+
+      <div class="view view-models" id="view-models" hidden>
+        <section class="sys" aria-label="This PC">
+          <div class="section-head">
+            <span class="label">This PC</span>
+            <button class="ghost" id="models-refresh" type="button">Refresh</button>
+          </div>
+          <div class="row">
+            <span class="label">GPU</span>
+            <span class="text" id="sys-gpu">&mdash;</span>
+          </div>
+          <div class="row">
+            <span class="label">CPU</span>
+            <span class="text" id="sys-cpu">&mdash;</span>
+          </div>
+          <div class="row">
+            <span class="label">Memory</span>
+            <span class="text" id="sys-ram">&mdash;</span>
+          </div>
+        </section>
+
+        <section class="pick" aria-label="Recommended model">
+          <span class="label">Recommended for this PC</span>
+          <div class="pick-row">
+            <h2 class="pick-name" id="pick-name">&mdash;</h2>
+            <div id="pick-action"></div>
+          </div>
+          <p class="pick-reason" id="pick-reason"></p>
+        </section>
+
+        <section class="catalog" aria-label="All models">
+          <div class="catalog-head">
+            <span class="label">All models</span>
+            <span class="label">Accuracy</span>
+            <span class="label">Speed</span>
+            <span class="label">Size</span>
+            <span></span>
+          </div>
+          <ol class="models" id="models"></ol>
+        </section>
+      </div>
+
+      <footer class="foot">
+        <span class="label" id="tagline">Say it &mdash; don&rsquo;t type it</span>
+        <button
+          class="ghost update"
+          id="update-button"
+          type="button"
+          title="Installs the update and reopens Prompt Maxxer. Takes a few seconds."
+          hidden
+        >Update ready &middot; Restart</button>
+        <div class="foot-right">
+          <div class="menu-anchor">
+            <button
+              class="model-button"
+              id="model-button"
+              type="button"
+              aria-haspopup="menu"
+              aria-expanded="false"
+              title="Switch model"
+            >Model &mdash;</button>
+            <div class="menu" id="model-menu" role="menu" hidden></div>
+          </div>
+          <span class="label">&middot; Live text <span id="live-text">on</span></span>
+        </div>
+      </footer>
+    </div>
+    <script type="module" src="/src/settings.ts"></script>
+  </body>
+</html>

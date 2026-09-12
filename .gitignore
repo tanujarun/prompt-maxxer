@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Rust / Tauri
+shell/src-tauri/target/
+shell/node_modules/
+shell/dist/
+
+# Models & local state
+models/
+*.bin
+*.onnx
+.prompt-maxxer/
+
+# OS
+Thumbs.db
+desktop.ini

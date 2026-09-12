@@ -1,0 +1,197 @@
+/* The recording readout: a small instrument LCD in the Teenage Engineering
+   manner, drawn by Nothing's rules - flat, bordered, no shadow, no blur.
+   The window around it is transparent and click-through.
+
+   Hierarchy: the live words are primary (Doto), the VU meter and tape counter
+   secondary, status labels tertiary (Space Mono caps). The REC lamp is the
+   single break in the monochrome. */
+
+html,
+body {
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+}
+
+body {
+  display: grid;
+  place-items: center;
+}
+
+.lcd {
+  width: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: 12px var(--space-md) 14px;
+  /* Opaque on purpose: the panel floats over arbitrary windows and blur is
+     off the table, so contrast has to come from the surface itself. */
+  background: var(--black);
+  border: 1px solid var(--border-visible);
+  border-radius: 12px;
+  opacity: 0;
+  /* Fade, don't slide. */
+  transition: opacity 150ms var(--ease);
+}
+
+body:not(.state-idle) .lcd {
+  opacity: 1;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+}
+
+/* -- top row: lamp, mode, tape counter, readout ------------------------- */
+
+.top {
+  gap: var(--space-sm);
+  height: 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.indicator {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-disabled);
+}
+
+/* The one colour on screen. Steady, like a deck's REC lamp: the block cursor
+   is already the blinking element, and two blinks would compete. */
+.state-recording .indicator,
+.state-error .indicator {
+  background: var(--rec);
+}
+
+/* Processing: a square that ticks. Mechanical, not a spinner. */
+.state-transcribing .indicator {
+  border-radius: 0;
+  background: var(--text-primary);
+  animation: tick 500ms steps(1, end) infinite;
+}
+
+.state-done .indicator {
+  border-radius: 0;
+  background: var(--text-display);
+}
+
+.mode {
+  color: var(--text-primary);
+}
+
+.state-recording .mode,
+.state-done .mode {
+  color: var(--text-display);
+}
+
+.state-error .mode {
+  color: var(--rec);
+}
+
+.counter {
+  margin-left: var(--space-sm);
+}
+
+.readout {
+  margin-left: auto;
+}
+
+/* -- main row: VU meter and live words ---------------------------------- */
+
+.main {
+  gap: var(--space-md);
+  height: 28px;
+}
+
+.vu {
+  flex: none;
+  display: flex;
+  gap: 2px;
+  height: 16px;
+}
+
+/* Square-ended discrete segments: the signature instrument bar. */
+.vu .seg {
+  width: 5px;
+  background: var(--border-visible);
+}
+
+.vu .seg.on {
+  background: var(--text-display);
+}
+
+/* Peak hold: the last loud moment lingers one step dimmer, then falls. */
+.vu .seg.peak {
+  background: var(--text-secondary);
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  line-height: 28px;
+}
+
+/* inline-block, not inline: ResizeObserver cannot measure an inline box, and
+   the overlay re-pins the scroll position whenever this line changes width. */
+.line {
+  display: inline-block;
+  font-family: var(--font-dot);
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-display);
+}
+
+/* Words Whisper may still revise are dimmed rather than shown with the same
+   confidence as settled text. */
+.tentative {
+  color: var(--text-disabled);
+}
+
+.stable:not(:empty) + .tentative:not(:empty)::before {
+  content: " ";
+}
+
+.cursor {
+  display: none;
+  width: 0.5em;
+  height: 0.72em;
+  margin-left: 4px;
+  vertical-align: -0.04em;
+  background: var(--text-display);
+}
+
+.state-recording .cursor {
+  display: inline-block;
+  animation: tick 1s steps(1, end) infinite;
+}
+
+.message {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.state-error .message {
+  color: var(--rec);
+}
+
+@keyframes tick {
+  50% {
+    opacity: 0;
+  }
+}

@@ -1,0 +1,32 @@
+[project]
+name = "prompt-maxxer-engine"
+version = "0.1.0"
+description = "Prompt Maxxer dictation engine - hotkey, capture, ASR and injection hot path"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.26",
+    "sounddevice>=0.4.6",
+    "soxr>=0.5.0",
+    "faster-whisper>=1.1.0",
+    "websockets>=12.0",
+]
+
+[project.optional-dependencies]
+cuda = [
+    # CTranslate2 finds cuBLAS/cuDNN through these wheels, so no CUDA
+    # toolkit install and no nvcc are required.
+    "nvidia-cublas-cu12",
+    "nvidia-cudnn-cu12>=9.0",
+]
+
+[project.scripts]
+prompt-maxxer-engine = "prompt_maxxer.__main__:main"
+
+# Only the engine package is installable. packaging/ holds the PyInstaller
+# build files, and without this setuptools refuses to guess between the two.
+[tool.setuptools.packages.find]
+include = ["prompt_maxxer*"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"

@@ -1,0 +1,2 @@
+Prompt Maxxer update signature fixture.
+Signed with the release key; used by the updater tests.
