@@ -83,17 +83,24 @@ Step "App and installer"
 # as updates. Without the key the build still works, but what it produces
 # cannot be published with release.ps1.
 $configs = @("src-tauri/tauri.bundle.conf.json")
-$keyFile = Join-Path $env:USERPROFILE ".prompt-maxxer\updater.key"
+# The key never lives inside the repository. It is looked for in a "signing"
+# folder beside the checkout (Prompt-Maxxer\source + Prompt-Maxxer\signing),
+# then in %USERPROFILE%\.prompt-maxxer.
+$keyCandidates = @(
+    (Join-Path (Split-Path $root -Parent) "signing\updater.key"),
+    (Join-Path $env:USERPROFILE ".prompt-maxxer\updater.key")
+)
+$keyFile = $keyCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
 $setKey = $false
 if ($env:TAURI_SIGNING_PRIVATE_KEY) {
     Write-Host "Signing for updates with the key in TAURI_SIGNING_PRIVATE_KEY"
-} elseif (Test-Path $keyFile) {
+} elseif ($keyFile) {
     Write-Host "Signing for updates with $keyFile"
     $env:TAURI_SIGNING_PRIVATE_KEY = (Get-Content -Raw $keyFile).Trim()
     $setKey = $true
 } else {
-    Write-Warning ("No update signing key at $keyFile. Building an unsigned installer, " +
-                   "which works but cannot be published as an update.")
+    Write-Warning ("No update signing key found (looked in $($keyCandidates -join ' and ')). " +
+                   "Building an unsigned installer, which works but cannot be published as an update.")
     $configs += "src-tauri/tauri.unsigned.conf.json"
 }
 $configArgs = foreach ($config in $configs) { "--config"; $config }

@@ -414,8 +414,9 @@ and `shell\src-tauri\Cargo.lock` for Rust. To move a Python library forward,
 upgrade it in the virtualenv, run the tests, then regenerate the lockfile as its
 header describes.
 
-If the update signing key is at `%USERPROFILE%\.prompt-maxxer\updater.key` (or
-in `TAURI_SIGNING_PRIVATE_KEY`), the installer is signed for updates. Without
+If the update signing key is in a `signing` folder beside the checkout
+(`..\signing\updater.key`), at `%USERPROFILE%\.prompt-maxxer\updater.key`, or in
+`TAURI_SIGNING_PRIVATE_KEY`, the installer is signed for updates. Without
 it the build still succeeds, but the installer cannot be published as an
 update.
 
@@ -482,8 +483,8 @@ private repository would not allow.
    `latest.json` the app checks, and tags the commit here.
 
 Updates are signed with a minisign key. The public half is in
-`tauri.conf.json`; the private half lives outside the repository at
-`%USERPROFILE%\.prompt-maxxer\updater.key`.
+`tauri.conf.json`; the private half lives outside the repository, in a
+`signing` folder beside the checkout or at `%USERPROFILE%\.prompt-maxxer\updater.key`.
 
 > **Back the private key up somewhere safe, such as a password manager.** Every
 > installed copy trusts only that key. If it is lost, no future update can be
