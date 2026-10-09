@@ -8,14 +8,15 @@
     shell\src-tauri\Cargo.toml and shell\package.json: installed copies only
     move to a higher version.
 
-    Needs the GitHub CLI signed in with access to both repositories, and an
+    Needs the GitHub CLI signed in with push access to the repository, and an
     installer built with the update signing key (see "Releasing" in the README).
-    The installer and latest.json go to the public releases-only repository; the
-    source commit is tagged in this one.
+    The commit that was built is tagged, and the installer and latest.json are
+    attached to a GitHub release on that tag. The repository must be public:
+    installed copies fetch updates without signing in.
 #>
 param(
     [Parameter(Mandatory)] [string]$Notes,
-    [string]$Repo = "tanujarun/prompt-maxxer-releases"
+    [string]$Repo = "tanujarun/prompt-maxxer"
 )
 
 $ErrorActionPreference = "Stop"
@@ -57,6 +58,12 @@ if ((Get-Item $signature).LastWriteTime -lt (Get-Item $installer).LastWriteTime)
 $dirty = git -C $root status --porcelain
 if ($dirty) { throw "Commit your changes first, so the release tag points at the code that was built." }
 
+# The release hangs off a tag in this repository, so the commit has to be there.
+Invoke-Native "fetching origin" { git -C $root fetch --quiet origin }
+$head = git -C $root rev-parse HEAD
+$onRemote = git -C $root branch -r --contains $head
+if (-not $onRemote) { throw "Push your commits first: $($head.Substring(0, 7)) is not on origin yet." }
+
 Invoke-Native "checking for an existing release" { gh release view "v$version" --repo $Repo } -AllowFailure | Out-Null
 if ($LASTEXITCODE -eq 0) { throw "v$version is already released. Raise the version and rebuild." }
 
@@ -85,11 +92,20 @@ $manifestPath = Join-Path $staging "latest.json"
 [System.IO.File]::WriteAllText($manifestPath, ($manifest | ConvertTo-Json -Depth 5), (New-Object System.Text.UTF8Encoding $false))
 
 Write-Host "Publishing Prompt Maxxer $version to $Repo"
-Invoke-Native "creating the release" {
-    gh release create "v$version" $asset $manifestPath --repo $Repo --title "Prompt Maxxer $version" --notes $Notes
+# The tag goes up first and the release is created on it. The other way round,
+# GitHub invents a tag of its own and the push of ours is then refused.
+$tagged = git -C $root tag --list "v$version"
+if ($tagged) {
+    # Left by a run that got no further. Fine, so long as it marks this commit.
+    $tagCommit = git -C $root rev-list -n 1 "v$version"
+    if ($tagCommit -ne $head) { throw "Tag v$version already exists on a different commit ($($tagCommit.Substring(0, 7)))." }
+} else {
+    Invoke-Native "tagging the source" { git -C $root tag -a "v$version" -m "Prompt Maxxer $version" }
 }
-Invoke-Native "tagging the source" { git -C $root tag -a "v$version" -m "Prompt Maxxer $version" }
 Invoke-Native "pushing the tag" { git -C $root push origin "v$version" }
+Invoke-Native "creating the release" {
+    gh release create "v$version" $asset $manifestPath --repo $Repo --verify-tag --title "Prompt Maxxer $version" --notes $Notes
+}
 
 Remove-Item -Recurse -Force $staging
 Write-Host "`nReleased: https://github.com/$Repo/releases/tag/v$version" -ForegroundColor Green

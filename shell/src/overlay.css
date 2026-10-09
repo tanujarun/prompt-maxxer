@@ -18,24 +18,130 @@ body {
   place-items: center;
 }
 
+/* -- the panel, and how it arrives, opens and leaves ----------------------
+
+   Three sizes, set by classes overlay.ts puts on <html>:
+
+     (none)              gone: a tiny capsule, invisible
+     pill-on             compact: a capsule just big enough for the level meter
+                         and the REC lamp. This is how the pill arrives, and how
+                         it stays while there is nothing to read.
+     pill-on pill-open   open: the full readout. Only once there are words or a
+                         message to show.
+
+   The panel is a shell around a fixed-size face. The shell's real width and
+   height are animated, not a scale transform, so the 1px border and the corner
+   radius stay crisp at every frame and nothing on the face is ever squashed.
+   The face never changes size: its text is laid out once and only uncovered.
+
+   There is one level meter. Compact, it is shifted to the middle of the
+   capsule; opening, it travels back to its place at the left of the readout on
+   the same curve as the shell widens, so it reads as the capsule unfolding
+   around the meter rather than one thing replacing another.
+
+   No overshoot, no bounce: it should read as a mechanism, not a toy.
+   OUTRO_MS in overlay.ts is the length of the leaving sequence and must match
+   the timings on `.lcd` below. */
+
 .lcd {
-  width: 640px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  padding: 12px var(--space-md) 14px;
+  --open-w: 640px;
+  --open-h: 78px;
+  --compact-w: 156px;
+  --compact-h: 36px;
+  --ease-open: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-settle: cubic-bezier(0.3, 0, 0.2, 1);
+  --ease-close: cubic-bezier(0.6, 0, 0.84, 0.2);
+
+  position: relative;
+  flex: none;
+  width: 44px;
+  height: 28px;
+  overflow: hidden;
   /* Opaque on purpose: the panel floats over arbitrary windows and blur is
      off the table, so contrast has to come from the surface itself. */
   background: var(--black);
   border: 1px solid var(--border-visible);
-  border-radius: 12px;
+  border-radius: 14px;
   opacity: 0;
-  /* Fade, don't slide. */
-  transition: opacity 150ms var(--ease);
+  /* Leaving: the face has gone by 70ms; close, then drop the capsule. */
+  transition:
+    width 190ms var(--ease-close) 50ms,
+    height 150ms var(--ease-close) 90ms,
+    border-radius 150ms linear 90ms,
+    opacity 70ms linear 190ms;
 }
 
-body:not(.state-idle) .lcd {
+/* Compact: arriving, or folding back down at the start of a new take. */
+.pill-on .lcd {
+  width: var(--compact-w);
+  height: var(--compact-h);
+  border-radius: 18px;
   opacity: 1;
+  transition:
+    width 240ms var(--ease-settle),
+    height 240ms var(--ease-settle),
+    border-radius 240ms linear,
+    opacity 80ms linear;
+}
+
+/* Open: quickly to its height, a little longer to its width, like a tape door. */
+.pill-on.pill-open .lcd {
+  width: var(--open-w);
+  height: var(--open-h);
+  border-radius: 12px;
+  transition:
+    width 340ms var(--ease-open),
+    height 220ms var(--ease-open),
+    border-radius 220ms linear,
+    opacity 80ms linear;
+}
+
+.face {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  /* The shell's open size, less its border. */
+  width: calc(var(--open-w) - 2px);
+  height: calc(var(--open-h) - 2px);
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: 12px var(--space-md) 14px;
+  opacity: 0;
+  transition: opacity 70ms linear;
+}
+
+.pill-on .face {
+  opacity: 1;
+  transition: opacity 100ms linear;
+}
+
+/* Everything on the face but the meter waits for the panel to open, and comes
+   in once there is room for it. */
+.top,
+.text {
+  opacity: 0;
+  transition: opacity 70ms linear;
+}
+
+.pill-open .top,
+.pill-open .text {
+  opacity: 1;
+  transition: opacity 180ms var(--ease) 130ms;
+}
+
+/* Windows' "Animation effects" switched off: the same three sizes, with a
+   plain fade in and out and no movement between them. */
+@media (prefers-reduced-motion: reduce) {
+  .lcd {
+    transition: opacity 150ms var(--ease) !important;
+  }
+
+  .lcd *,
+  .lcd *::before {
+    transition: none !important;
+  }
 }
 
 .row {
@@ -113,10 +219,55 @@ body:not(.state-idle) .lcd {
 }
 
 .vu {
+  position: relative;
   flex: none;
   display: flex;
   gap: 2px;
   height: 16px;
+  /* Compact: from its place at the left of the readout to the middle of the
+     capsule, leaving room on its left for the lamp. The offsets are the
+     distance between the two, so they change with the face's layout. */
+  transform: translate(255px, -10px);
+  transition: transform 240ms var(--ease-settle);
+}
+
+.pill-open .vu {
+  transform: none;
+  /* The same curve and length as the shell's width, so it keeps its distance
+     from the left edge all the way out. */
+  transition: transform 340ms var(--ease-open);
+}
+
+/* The compact capsule's own lamp. The one in the top row is out of sight until
+   the panel opens, and a meter with nothing lit says nothing about whether the
+   deck is recording. */
+.vu::before {
+  content: "";
+  position: absolute;
+  left: -14px;
+  top: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-disabled);
+  transition: opacity 120ms linear 120ms;
+}
+
+.state-recording .vu::before,
+.state-error .vu::before {
+  background: var(--rec);
+}
+
+.state-transcribing .vu::before {
+  border-radius: 0;
+  background: var(--text-primary);
+  animation: tick 500ms steps(1, end) infinite;
+}
+
+.pill-open .vu::before {
+  opacity: 0;
+  animation: none;
+  transition: opacity 70ms linear;
 }
 
 /* Square-ended discrete segments: the signature instrument bar. */

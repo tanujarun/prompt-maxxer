@@ -1,6 +1,6 @@
 [package]
 name = "prompt-maxxer"
-version = "0.1.0"
+version = "0.1.1"
 description = "Prompt Maxxer - push-to-talk dictation"
 authors = ["Prompt Maxxer"]
 edition = "2021"
@@ -28,11 +28,13 @@ semver = "1"
 [target.'cfg(windows)'.dependencies]
 # Job objects, so the engine cannot outlive the shell even if the shell is
 # force-killed. An orphaned engine keeps a global keyboard hook installed.
+# Window positioning, to find the monitor in use and keep the overlay on top.
 windows-sys = { version = "0.60", features = [
     "Win32_Foundation",
     "Win32_Security",
     "Win32_System_JobObjects",
     "Win32_System_Threading",
+    "Win32_UI_WindowsAndMessaging",
 ] }
 winreg = "0.56.0"
 

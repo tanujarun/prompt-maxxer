@@ -122,9 +122,26 @@ function frame(now: number): void {
   requestAnimationFrame(frame);
 }
 
+// -- compact and open --------------------------------------------------------
+
+const root = document.documentElement;
+
+/** The pill arrives compact - a capsule holding only the level meter - and
+ *  opens to the full readout only when there is something on it to read:
+ *  recognised words, or a message. Listening to silence is not a reason to
+ *  put a 640 px panel on screen. */
+function openPanel(): void {
+  root.classList.add("pill-open");
+}
+
+function compactPanel(): void {
+  root.classList.remove("pill-open");
+}
+
 // -- text ----------------------------------------------------------------
 
 function showWords(stable: string, tentative: string): void {
+  if (stable || tentative) openPanel();
   message.hidden = true;
   line.hidden = false;
   stableEl.textContent = stable;
@@ -137,6 +154,7 @@ function showWords(stable: string, tentative: string): void {
 }
 
 function showMessage(msg: string): void {
+  openPanel();
   line.hidden = true;
   message.hidden = false;
   message.textContent = msg;
@@ -161,9 +179,71 @@ let hideTimer: number | undefined;
  *  instant it arrived. */
 let holding = false;
 
+// -- arriving and leaving ----------------------------------------------------
+
+const IN_TAURI = "__TAURI_INTERNALS__" in window;
+
+/** How long the pill takes to close, in ms. Matches the leaving transitions in
+ *  overlay.css. */
+const OUTRO_MS = 260;
+/** The longest the pill will wait for its window to be put in place. */
+const PLACE_TIMEOUT_MS = 120;
+
+/** Whether the pill is meant to be on screen. */
+let shown = false;
+let resetTimer: number | undefined;
+
+/** Have the shell move the window to the monitor in use and put it back above
+ *  every other window. The window is never hidden, only emptied, so nothing
+ *  else re-places or re-raises it: without this the pill stayed on the monitor
+ *  it started on, and could end up underneath other apps. */
+function placeWindow(): Promise<unknown> {
+  return IN_TAURI ? invoke("show_overlay").catch(() => {}) : Promise.resolve();
+}
+
+/** Bring the pill up, playing its opening. */
+function reveal(look: Look): void {
+  if (shown) {
+    // Already up. A new take can begin on another monitor while the last
+    // result is still showing, so re-place at the start of every take - but
+    // never mid-take: the pill stays where the take started.
+    if (look === "recording") void placeWindow();
+    return;
+  }
+  shown = true;
+  // Open only once the window is where it belongs, or the first frames of the
+  // opening would play on the monitor the pill was last on. Capped, because a
+  // slow or failed call must never cost the pill itself.
+  const capped = new Promise((resolve) => window.setTimeout(resolve, PLACE_TIMEOUT_MS));
+  void Promise.race([placeWindow(), capped]).then(() => {
+    if (shown) root.classList.add("pill-on");
+  });
+}
+
+/** Take the pill down, playing its closing. The readout keeps the look and the
+ *  size it had until it has closed: switching to standby at once showed the
+ *  lamp and the mode label change on the way out, and folding to compact at
+ *  once would send the meter travelling across a panel that is leaving. */
+function conceal(): void {
+  shown = false;
+  root.classList.remove("pill-on");
+  window.clearTimeout(resetTimer);
+  resetTimer = window.setTimeout(() => {
+    body.className = "state-idle";
+    mode.textContent = "STBY";
+    compactPanel();
+  }, OUTRO_MS);
+}
+
 function setLook(look: Look, modeText: string): void {
   window.clearTimeout(hideTimer);
+  window.clearTimeout(resetTimer);
   holding = false;
+  if (look === "idle") {
+    conceal();
+    return;
+  }
+  reveal(look);
   body.className = `state-${look}`;
   mode.textContent = modeText;
   ensureLoop();
@@ -174,7 +254,7 @@ function holdThenHide(ms: number): void {
   if (DEMO) return;
   hideTimer = window.setTimeout(() => {
     holding = false;
-    body.className = "state-idle";
+    conceal();
   }, ms);
 }
 
@@ -202,6 +282,9 @@ function handle(event: EngineEvent): void {
     case "state":
       if (event.state === "recording") {
         setLook("recording", "REC");
+        // Every take starts compact, including one begun while the last
+        // result is still open on screen.
+        compactPanel();
         recordingSince = performance.now();
         counter.textContent = "00:00";
         readout.textContent = formatDb(-Infinity);
@@ -213,7 +296,10 @@ function handle(event: EngineEvent): void {
         // Freeze on the engine's own measurement of the take rather than on
         // whatever the last drawn frame happened to show.
         if (event.audio_s !== undefined) counter.textContent = formatElapsed(event.audio_s * 1000);
-        if (!stableEl.textContent && !tentativeEl.textContent) {
+        // An open panel with no words left on it says what it is doing. A
+        // compact one does not open just to say so: its lamp ticks instead,
+        // and it opens a moment later for the result or the notice.
+        if (!stableEl.textContent && !tentativeEl.textContent && root.classList.contains("pill-open")) {
           showMessage("[TRANSCRIBING]");
         }
       } else if (event.state === "loading") {

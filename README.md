@@ -15,7 +15,7 @@ A local-first take on [Wispr Flow](https://wisprflow.ai).
 For anyone who just wants to use it. Nothing else needs installing first — no
 Python, no GPU toolkit.
 
-1. Open the [latest release](https://github.com/tanujarun/prompt-maxxer-releases/releases/latest)
+1. Open the [latest release](https://github.com/tanujarun/prompt-maxxer/releases/latest)
    and download **`Prompt-Maxxer_<version>_x64-setup.exe`**.
 2. Run it. It installs for your user account only, so it does not ask for
    administrator rights.
@@ -199,6 +199,27 @@ are bundled from Fontsource, so nothing loads from the network.
 square-ended VU meter with peak hold, then your words in Doto with a blinking
 block cursor. Settled words are white; words Whisper may still revise are
 dimmed. Long lines hard-clip at the left like a real display.
+
+**The pill arrives small and opens only when there is something to read.** It
+comes up as a capsule about the size of the level meter, holding just the meter
+and the REC lamp, and stays that way while it is only listening. It opens out to
+the full readout when words are recognised or there is a message to show ("no
+speech detected", an error, a download in progress), with the meter travelling
+to its place at the left as the panel widens around it. A new take always starts
+compact again. Leaving, the text goes first and the panel folds back down to a
+capsule before it disappears. The panel's real width and height are animated
+rather than a scale transform, so the border and corners stay crisp throughout;
+there is no overshoot or bounce. With Windows' "Animation effects" switched off
+it changes size without movement and simply fades.
+
+**The pill appears where you are working.** Each time it comes up it moves to
+the bottom-centre of the monitor holding the window you are typing into
+(failing that, the monitor under the mouse pointer, then the primary one), and
+puts itself back above every other window. It stays put for the length of a
+take. Both steps happen on every appearance rather than once at launch: the
+window is never hidden, only transparent, so nothing else would ever re-place or
+re-raise it, and Windows has been seen to drop it beneath ordinary windows after
+a sign-in while still reporting it as always-on-top.
 
 **The settings window is a faceplate.** The engine state is the hero, one Doto
 word (`READY`, `REC`, `WORKING`, `OFFLINE`) beside a voice-band visualizer.
@@ -469,18 +490,24 @@ cargo test --lib                               # Start with Windows, update sign
 
 ### Releasing
 
-Installed copies update from
-[`tanujarun/prompt-maxxer-releases`](https://github.com/tanujarun/prompt-maxxer-releases),
-a public repository that holds only installers. This source repository stays
-private: the app downloads updates without signing in to GitHub, which a
-private repository would not allow.
+Installed copies update from this repository's own
+[GitHub releases](https://github.com/tanujarun/prompt-maxxer/releases). The
+repository has to stay public for that to work: the app downloads updates
+without signing in to GitHub.
 
 1. Raise the version in `shell/src-tauri/tauri.conf.json`,
    `shell/src-tauri/Cargo.toml` and `shell/package.json`. Installed copies only
    move to a higher version.
-2. Commit, then run `.\build.ps1`.
-3. Run `.\release.ps1 -Notes "What changed"`. It uploads the installer and the
-   `latest.json` the app checks, and tags the commit here.
+2. Commit and push, then run `.\build.ps1`.
+3. Run `.\release.ps1 -Notes "What changed"`. It tags the commit, and attaches
+   the installer and the `latest.json` the app checks to a release on that tag.
+
+Version 0.1.0 looked for updates in a separate repository,
+`tanujarun/prompt-maxxer-releases`. That one holds a single forwarding release
+whose `latest.json` points at the 0.1.1 installer here, so copies still on 0.1.0
+move to 0.1.1 and follow this repository from then on. It can be deleted once
+nobody is left on 0.1.0; a copy that has not updated by then has to be
+reinstalled by hand.
 
 Updates are signed with a minisign key. The public half is in
 `tauri.conf.json`; the private half lives outside the repository, in a
@@ -541,8 +568,6 @@ behaviour (`inject`).
 * **Unsigned installer.** SmartScreen warns on first install until the app is
   code-signed. (Updates are signed separately, with the update key, and are
   verified by the app itself.)
-* **Installers are public.** Anyone with the link to the releases repository
-  can download the app, though not its source.
 * **Keyboard keys only.** Mouse side buttons cannot be the push-to-talk key yet;
   that needs a low-level mouse hook.
 * **Downloads cannot be cancelled** once started.

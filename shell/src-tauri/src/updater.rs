@@ -1,6 +1,6 @@
 //! Keeping installed copies up to date.
 //!
-//! An installed copy checks the public releases repository in the background,
+//! An installed copy checks this repository's GitHub releases in the background,
 //! downloads a new version quietly, and installs it the next time the app
 //! restarts: at the next launch, when someone quits from the tray, or straight
 //! away from the settings window or the tray menu. It never interrupts someone

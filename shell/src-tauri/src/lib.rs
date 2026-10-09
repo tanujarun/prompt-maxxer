@@ -15,8 +15,8 @@ use engine::EngineProcess;
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Manager, PhysicalPosition, RunEvent, State, WebviewUrl, WebviewWindowBuilder,
-    WindowEvent, Wry,
+    AppHandle, Manager, Monitor, PhysicalPosition, RunEvent, State, WebviewUrl, WebviewWindow,
+    WebviewWindowBuilder, WindowEvent, Wry,
 };
 
 /// Where the engine publishes its event stream.
@@ -111,6 +111,13 @@ fn set_hotkey_label(app: tauri::AppHandle, label: String) -> Result<(), String> 
     Ok(())
 }
 
+/// Put the pill where the person is working and on top of everything. The
+/// overlay calls this each time the pill appears.
+#[tauri::command]
+fn show_overlay(app: AppHandle) -> Result<(), String> {
+    present_overlay(&app).map_err(|err| err.to_string())
+}
+
 /// Whether the engine has never run for this user: it writes its config file
 /// on first start.
 fn is_first_run() -> bool {
@@ -119,8 +126,143 @@ fn is_first_run() -> bool {
         .is_some_and(|config| !config.is_file())
 }
 
-/// Park the overlay at bottom-centre of the primary monitor, above the
-/// taskbar, and let clicks fall through to whatever is underneath.
+/// Size of the overlay window in logical pixels, as set in tauri.conf.json.
+const PILL_WIDTH: f64 = 700.0;
+const PILL_HEIGHT: f64 = 100.0;
+/// Space left under the pill, in logical pixels, so it clears the taskbar.
+const PILL_BOTTOM_GAP: f64 = 110.0;
+
+/// Top-left corner, in physical pixels, that puts the pill at bottom-centre of
+/// a monitor. Only the primary monitor starts at (0, 0), so the monitor's own
+/// origin is part of the answer.
+fn pill_position(origin: (i32, i32), size: (u32, u32), scale: f64) -> (i32, i32) {
+    let width = (PILL_WIDTH * scale).round() as i32;
+    let height = (PILL_HEIGHT * scale).round() as i32;
+    let gap = (PILL_BOTTOM_GAP * scale).round() as i32;
+    (
+        origin.0 + (size.0 as i32 - width) / 2,
+        origin.1 + size.1 as i32 - height - gap,
+    )
+}
+
+/// Centre of the window that has keyboard focus, in physical pixels.
+#[cfg(windows)]
+fn focused_window_centre() -> Option<(f64, f64)> {
+    use windows_sys::Win32::Foundation::RECT;
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        GetForegroundWindow, GetShellWindow, GetWindowRect, IsIconic,
+    };
+
+    unsafe {
+        let hwnd = GetForegroundWindow();
+        // Nothing focused, or the desktop itself, which spans every monitor
+        // and so says nothing about which one is in use.
+        if hwnd.is_null() || hwnd == GetShellWindow() || IsIconic(hwnd) != 0 {
+            return None;
+        }
+        let mut rect: RECT = std::mem::zeroed();
+        if GetWindowRect(hwnd, &mut rect) == 0 {
+            return None;
+        }
+        Some((
+            (rect.left as f64 + rect.right as f64) / 2.0,
+            (rect.top as f64 + rect.bottom as f64) / 2.0,
+        ))
+    }
+}
+
+#[cfg(not(windows))]
+fn focused_window_centre() -> Option<(f64, f64)> {
+    None
+}
+
+/// The monitor the person is working on: the one holding the window with
+/// keyboard focus, because that is where the words are about to be typed.
+/// Failing that, the monitor under the mouse pointer, then the primary one.
+fn active_monitor(overlay: &WebviewWindow) -> Option<Monitor> {
+    if let Some((x, y)) = focused_window_centre() {
+        if let Ok(Some(monitor)) = overlay.monitor_from_point(x, y) {
+            return Some(monitor);
+        }
+    }
+    if let Ok(cursor) = overlay.cursor_position() {
+        if let Ok(Some(monitor)) = overlay.monitor_from_point(cursor.x, cursor.y) {
+            return Some(monitor);
+        }
+    }
+    overlay.primary_monitor().ok().flatten()
+}
+
+/// Put the overlay back above every other window, without taking focus.
+///
+/// Asking for always-on-top once, at startup, is not enough. The window is
+/// never hidden - an idle pill is only transparent - so nothing ever re-raises
+/// it, and Windows has been seen to drop it out of the always-on-top band
+/// altogether while leaving its always-on-top flag set: after a sign-in the pill
+/// sat underneath ordinary application windows and dictation appeared to have
+/// no pill at all. Tauri's own `set_always_on_top(true)` does nothing in that
+/// state, because as far as it knows the window is already on top.
+fn raise_to_top(overlay: &WebviewWindow) -> tauri::Result<()> {
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::UI::WindowsAndMessaging::{
+            SetWindowPos, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+        };
+
+        let hwnd = overlay.hwnd()?;
+        // SWP_NOACTIVATE: raising must never take focus from the window the
+        // words are being typed into.
+        let raised = unsafe {
+            SetWindowPos(
+                hwnd.0,
+                HWND_TOPMOST,
+                0,
+                0,
+                0,
+                0,
+                SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE,
+            )
+        };
+        if raised == 0 {
+            return Err(std::io::Error::last_os_error().into());
+        }
+    }
+
+    #[cfg(not(windows))]
+    overlay.set_always_on_top(true)?;
+
+    Ok(())
+}
+
+/// Move the pill to bottom-centre of the monitor in use, and above every other
+/// window. Cheap enough to do every time the pill appears, which is the only
+/// moment either property matters.
+fn present_overlay(app: &AppHandle) -> tauri::Result<()> {
+    let Some(overlay) = app.get_webview_window("overlay") else {
+        return Ok(());
+    };
+
+    if let Some(monitor) = active_monitor(&overlay) {
+        let origin = monitor.position();
+        let size = monitor.size();
+        let (x, y) = pill_position(
+            (origin.x, origin.y),
+            (size.width, size.height),
+            monitor.scale_factor(),
+        );
+        let already_there = overlay
+            .outer_position()
+            .is_ok_and(|at| at.x == x && at.y == y);
+        if !already_there {
+            overlay.set_position(PhysicalPosition::new(x, y))?;
+        }
+    }
+
+    raise_to_top(&overlay)
+}
+
+/// Set the overlay up at launch: clicks fall through to whatever is underneath,
+/// and it starts on the monitor in use.
 fn place_overlay(app: &tauri::AppHandle) -> tauri::Result<()> {
     let Some(overlay) = app.get_webview_window("overlay") else {
         return Ok(());
@@ -130,16 +272,7 @@ fn place_overlay(app: &tauri::AppHandle) -> tauri::Result<()> {
     // behind it.
     overlay.set_ignore_cursor_events(true)?;
 
-    if let Ok(Some(monitor)) = overlay.primary_monitor() {
-        let screen = monitor.size();
-        let win = overlay.outer_size()?;
-        let scale = monitor.scale_factor();
-        let x = (screen.width as i32 - win.width as i32) / 2;
-        let y = screen.height as i32 - win.height as i32 - (110.0 * scale) as i32;
-        overlay.set_position(PhysicalPosition::new(x, y))?;
-    }
-
-    Ok(())
+    present_overlay(app)
 }
 
 /// Show the settings window on a given section, creating it on first use.
@@ -266,6 +399,7 @@ pub fn run() {
             engine_running,
             start_engine,
             set_hotkey_label,
+            show_overlay,
             autostart_status,
             set_autostart,
             update_status,
@@ -323,4 +457,27 @@ pub fn run() {
                 engine::shutdown(&app.state::<EngineProcess>());
             }
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::pill_position;
+
+    #[test]
+    fn sits_bottom_centre_of_the_primary_monitor() {
+        // 2560x1440 at 100%: a 700x100 pill, 110 px clear of the bottom edge.
+        assert_eq!(pill_position((0, 0), (2560, 1440), 1.0), (930, 1230));
+    }
+
+    #[test]
+    fn follows_a_monitor_that_does_not_start_at_the_origin() {
+        // A second monitor to the left of, and lower than, the primary.
+        assert_eq!(pill_position((-2560, 337), (2560, 1440), 1.0), (-1630, 1567));
+    }
+
+    #[test]
+    fn scales_with_the_monitor() {
+        // 3840x2160 at 150%: the pill is 1050x150 with a 165 px gap.
+        assert_eq!(pill_position((2560, 0), (3840, 2160), 1.5), (3955, 1845));
+    }
 }
